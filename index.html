@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flughöhe AGL Rechner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Roboto Mono', monospace;
+            transition: background-color 0.3s ease;
+        }
+
+        .toggle-btn {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>');
+        }
+    </style>
+</head>
+<body class="bg-gray-800 flex items-center justify-center min-h-screen p-4 transition-colors duration-300">
+
+    <!-- Hauptcontainer -->
+    <div id="mainContainer" class="bg-black rounded-2xl shadow-lg w-full max-w-xs p-6 space-y-4 border-2 border-gray-700 transition-colors duration-300">
+        
+        <!-- Titel und Invertier-Button -->
+        <div class="flex justify-between items-center">
+            <div class="text-left">
+                <h1 class="text-xl font-bold text-green-400 uppercase tracking-wider">Flughöhe AGL</h1>
+                <p class="text-xs text-gray-500">Berechnet die Höhe über Grund.</p>
+            </div>
+            <!-- Neuer Button für die Invertierung -->
+            <button id="invertButton" onclick="toggleInversion()" class="p-2 rounded-full text-gray-400 hover:text-green-400 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Eingabegruppe: Flughöhe -->
+        <div id="flughoeheGroup" class="bg-gray-900 border border-gray-700 p-3 rounded-lg space-y-2 transition-colors duration-300">
+            <label for="flughoeheInput" class="text-xs font-bold text-gray-400 uppercase">Flughöhe</label>
+            <div class="flex items-stretch gap-2">
+                <input type="text" id="flughoeheInput" placeholder="10.000" oninput="berechneHoehe()" onblur="formatInput(this)" class="flex-grow bg-gray-800 border border-gray-600 rounded-md p-2 text-lg text-green-400 text-right font-mono focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 w-full min-w-0 transition-colors duration-300">
+                <button id="flughoeheUnit" onclick="toggleUnit('flughoehe')" class="flex-shrink-0 bg-gray-700 text-gray-300 font-bold py-2 px-4 rounded-md hover:bg-gray-600 transition-colors duration-200 active:scale-95 text-lg">ft</button>
+            </div>
+        </div>
+
+        <!-- Eingabegruppe: Meereshöhe -->
+        <div id="meereshoeheGroup" class="bg-gray-900 border border-gray-700 p-3 rounded-lg space-y-2 transition-colors duration-300">
+            <label for="meereshoeheInput" class="text-xs font-bold text-gray-400 uppercase">Lokale Meereshöhe</label>
+            <div class="flex items-stretch gap-2">
+                <input type="text" id="meereshoeheInput" placeholder="494" oninput="berechneHoehe()" onblur="formatInput(this)" class="flex-grow bg-gray-800 border border-gray-600 rounded-md p-2 text-lg text-green-400 text-right font-mono focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 w-full min-w-0 transition-colors duration-300">
+                <button id="meereshoeheUnit" onclick="toggleUnit('meereshoehe')" class="flex-shrink-0 bg-gray-700 text-gray-300 font-bold py-2 px-4 rounded-md hover:bg-gray-600 transition-colors duration-200 active:scale-95 text-lg">m</button>
+            </div>
+        </div>
+
+        <!-- Button: Mindesthöhe setzen -->
+        <button id="setButton" onclick="setMindestHoehe()" class="w-full bg-green-500 text-black font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-600 transition-colors duration-200 active:scale-98 text-sm uppercase tracking-wider">Mindesthöhe setzen</button>
+
+        <!-- Ausgabegruppe: AGL-Höhe -->
+        <div id="ergebnisGroup" class="bg-gray-900 border border-gray-700 p-3 rounded-lg space-y-2 transition-colors duration-300">
+            <label class="text-xs font-bold text-gray-400 uppercase">AGL-Höhe</label>
+            <div class="flex items-stretch gap-2">
+                <p id="ergebnis" class="flex-grow bg-gray-800 border border-gray-600 rounded-md p-2 text-lg text-yellow-400 text-right font-mono w-full min-w-0 flex items-center justify-end transition-colors duration-300"></p>
+                <button id="ergebnisUnit" onclick="toggleErgebnisUnit()" class="flex-shrink-0 bg-gray-700 text-gray-300 font-bold py-2 px-4 rounded-md hover:bg-gray-600 transition-colors duration-200 active:scale-95 text-lg">m</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const FUSS_IN_METER = 0.3048;
+        const METER_IN_FUSS = 1 / FUSS_IN_METER;
+        const setButton = document.getElementById('setButton');
+        const elements = {
+            body: document.body,
+            mainContainer: document.getElementById('mainContainer'),
+            flughoeheGroup: document.getElementById('flughoeheGroup'),
+            meereshoeheGroup: document.getElementById('meereshoeheGroup'),
+            ergebnisGroup: document.getElementById('ergebnisGroup'),
+            flughoeheInput: document.getElementById('flughoeheInput'),
+            meereshoeheInput: document.getElementById('meereshoeheInput'),
+            ergebnis: document.getElementById('ergebnis'),
+            unitButtons: document.querySelectorAll('#flughoeheUnit, #meereshoeheUnit, #ergebnisUnit'),
+            labels: document.querySelectorAll('label'),
+            title: document.querySelector('h1'),
+            subtitle: document.querySelector('p.text-xs'),
+        };
+        let isLightMode = false;
+
+        function cleanAndParse(value) {
+            if (typeof value !== 'string') return 0;
+            return parseFloat(value.replace(/\./g, '').replace(/,/g, '.')) || 0;
+        }
+
+        function formatInput(inputElement) {
+            const value = inputElement.value;
+            if (value) {
+                const numberValue = cleanAndParse(value);
+                if (!isNaN(numberValue)) {
+                    inputElement.value = numberValue.toLocaleString('de-DE');
+                }
+            }
+        }
+        
+        function getUnit(inputName) {
+            const unitButton = document.getElementById(`${inputName}Unit`);
+            return unitButton.textContent;
+        }
+        
+        function toggleUnit(inputName) {
+            const unitButton = document.getElementById(`${inputName}Unit`);
+            unitButton.textContent = unitButton.textContent === 'ft' ? 'm' : 'ft';
+            localStorage.setItem(`${inputName}Unit`, unitButton.textContent);
+            berechneHoehe();
+        }
+
+        function toggleErgebnisUnit() {
+            const unitButton = document.getElementById('ergebnisUnit');
+            unitButton.textContent = unitButton.textContent === 'ft' ? 'm' : 'ft';
+            localStorage.setItem('ergebnisUnit', unitButton.textContent);
+            berechneHoehe();
+        }
+
+        function updateButtonState(isDanger) {
+            if (isDanger) {
+                setButton.textContent = 'Mindesthöhe setzen';
+                setButton.classList.remove('bg-green-500', 'hover:bg-green-600', 'text-black');
+                setButton.classList.add('bg-red-600', 'hover:bg-red-700', 'text-white');
+            } else {
+                setButton.textContent = 'Mindestflughöhe gesetzt';
+                setButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'text-white');
+                setButton.classList.add('bg-green-500', 'hover:bg-green-600', 'text-black');
+            }
+        }
+
+        function berechneHoehe() {
+            const flughoeheInput = document.getElementById('flughoeheInput');
+            const meereshoeheInput = document.getElementById('meereshoeheInput');
+            const ergebnisAnzeige = document.getElementById('ergebnis');
+            const ergebnisUnit = document.getElementById('ergebnisUnit').textContent;
+
+            const flughoeheValue = cleanAndParse(flughoeheInput.value);
+            const meereshoeheValue = cleanAndParse(meereshoeheInput.value);
+
+            const flughoeheUnit = getUnit('flughoehe');
+            const meereshoeheUnit = getUnit('meereshoehe');
+
+            localStorage.setItem('flughoeheInput', flughoeheInput.value);
+            localStorage.setItem('meereshoeheInput', meereshoeheInput.value);
+            
+            let flughoeheMeter = flughoeheUnit === 'ft' ? flughoeheValue * FUSS_IN_METER : flughoeheValue;
+            let meereshoeheMeter = meereshoeheUnit === 'ft' ? meereshoeheValue * FUSS_IN_METER : meereshoeheValue;
+
+            const flughoeheAGL = flughoeheMeter - meereshoeheMeter;
+            
+            if (ergebnisUnit === 'm') {
+                const gerundeteAGL = Math.round(Math.max(0, flughoeheAGL));
+                ergebnisAnzeige.textContent = gerundeteAGL.toLocaleString('de-DE');
+            } else {
+                const gerundeteAGLFt = Math.round(Math.max(0, flughoeheAGL * METER_IN_FUSS));
+                ergebnisAnzeige.textContent = gerundeteAGLFt.toLocaleString('de-DE');
+            }
+
+            updateButtonState(flughoeheAGL <= 0);
+        }
+
+        function setMindestHoehe() {
+            const flughoeheInput = document.getElementById('flughoeheInput');
+            const meereshoeheInput = document.getElementById('meereshoeheInput');
+            
+            const flughoeheUnit = getUnit('flughoehe');
+            const meereshoeheUnit = getUnit('meereshoehe');
+
+            let lokaleMeereshoehe = cleanAndParse(meereshoeheInput.value);
+            if (meereshoeheUnit === 'ft') {
+                lokaleMeereshoehe *= FUSS_IN_METER;
+            }
+            
+            let mindestHoehe;
+            if (flughoeheUnit === 'ft') {
+                mindestHoehe = Math.ceil(lokaleMeereshoehe * METER_IN_FUSS);
+            } else {
+                mindestHoehe = Math.ceil(lokaleMeereshoehe);
+            }
+            
+            flughoeheInput.value = mindestHoehe.toLocaleString('de-DE');
+            berechneHoehe();
+        }
+
+        // Neue Funktionen für die Invertierung
+        function toggleInversion() {
+            isLightMode = !isLightMode;
+            localStorage.setItem('theme', isLightMode ? 'light' : 'dark');
+            applyTheme();
+        }
+
+        function applyTheme() {
+            isLightMode = localStorage.getItem('theme') === 'light';
+
+            // Farben für den Hauptcontainer
+            elements.mainContainer.classList.toggle('bg-black', !isLightMode);
+            elements.mainContainer.classList.toggle('bg-white', isLightMode);
+            elements.mainContainer.classList.toggle('border-gray-700', !isLightMode);
+            elements.mainContainer.classList.toggle('border-gray-200', isLightMode);
+
+            // Farben für die Eingabe- und Ausgabegruppen
+            const groups = [elements.flughoeheGroup, elements.meereshoeheGroup, elements.ergebnisGroup];
+            groups.forEach(group => {
+                group.classList.toggle('bg-gray-900', !isLightMode);
+                group.classList.toggle('bg-gray-50', isLightMode);
+                group.classList.toggle('border-gray-700', !isLightMode);
+                group.classList.toggle('border-gray-200', isLightMode);
+            });
+
+            // Farben für Eingabefelder und Ergebnis-Anzeige
+            const inputs = [elements.flughoeheInput, elements.meereshoeheInput, elements.ergebnis];
+            inputs.forEach(input => {
+                input.classList.toggle('bg-gray-800', !isLightMode);
+                input.classList.toggle('bg-white', isLightMode);
+                input.classList.toggle('text-green-400', !isLightMode);
+                input.classList.toggle('text-green-700', isLightMode);
+                input.classList.toggle('text-yellow-400', !isLightMode);
+                input.classList.toggle('text-yellow-700', isLightMode);
+                input.classList.toggle('border-gray-600', !isLightMode);
+                input.classList.toggle('border-gray-300', isLightMode);
+                input.classList.toggle('focus:ring-green-500', !isLightMode);
+                input.classList.toggle('focus:border-green-500', !isLightMode);
+                input.classList.toggle('focus:ring-green-700', isLightMode);
+                input.classList.toggle('focus:border-green-700', isLightMode);
+            });
+
+            // Farben für Label und Untertitel
+            elements.labels.forEach(label => {
+                label.classList.toggle('text-gray-400', !isLightMode);
+                label.classList.toggle('text-gray-600', isLightMode);
+            });
+            elements.subtitle.classList.toggle('text-gray-500', !isLightMode);
+            elements.subtitle.classList.toggle('text-gray-400', isLightMode);
+
+            // Farben für die Unit-Buttons
+            elements.unitButtons.forEach(button => {
+                button.classList.toggle('bg-gray-700', !isLightMode);
+                button.classList.toggle('bg-gray-200', isLightMode);
+                button.classList.toggle('text-gray-300', !isLightMode);
+                button.classList.toggle('text-gray-600', isLightMode);
+                button.classList.toggle('hover:bg-gray-600', !isLightMode);
+                button.classList.toggle('hover:bg-gray-300', isLightMode);
+            });
+
+            // Farben für den Titel und den Invertier-Button
+            elements.title.classList.toggle('text-green-400', !isLightMode);
+            elements.title.classList.toggle('text-green-700', isLightMode);
+            document.getElementById('invertButton').classList.toggle('text-gray-400', !isLightMode);
+            document.getElementById('invertButton').classList.toggle('text-gray-600', isLightMode);
+            document.getElementById('invertButton').classList.toggle('hover:text-green-400', !isLightMode);
+            document.getElementById('invertButton').classList.toggle('hover:text-green-700', isLightMode);
+        }
+
+        window.onload = function() {
+            // Lade gespeicherte Einheiten und Werte
+            document.getElementById('flughoeheUnit').textContent = localStorage.getItem('flughoeheUnit') || 'ft';
+            document.getElementById('meereshoeheUnit').textContent = localStorage.getItem('meereshoeheUnit') || 'm';
+            document.getElementById('ergebnisUnit').textContent = localStorage.getItem('ergebnisUnit') || 'm';
+            
+            const gespeicherteFlughoeheInput = localStorage.getItem('flughoeheInput');
+            if (gespeicherteFlughoeheInput) {
+                document.getElementById('flughoeheInput').value = gespeicherteFlughoeheInput;
+            }
+            const gespeicherteMeereshoeheInput = localStorage.getItem('meereshoeheInput');
+            if (gespeicherteMeereshoeheInput) {
+                document.getElementById('meereshoeheInput').value = gespeicherteMeereshoeheInput;
+            }
+            
+            // Wende das gespeicherte Thema an
+            applyTheme();
+
+            // Berechne die Höhe nach dem Laden
+            berechneHoehe();
+        };
+    </script>
+
+</body>
+</html>
